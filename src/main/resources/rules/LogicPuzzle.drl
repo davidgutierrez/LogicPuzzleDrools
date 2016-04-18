@@ -1,0 +1,626 @@
+package com.sample
+
+import  java.lang.String
+import java.util.LinkedList;
+import java.util.List;
+ 
+rule "Hay pista de igualdad."
+	when
+		p : LpPista($a : valor1,$b : valor2,valorOp1=="=", valorOp2 == null) //"a01","=","a20"
+		c : LpCelda($c : valorVariable,	$d : valorComparar,
+			(( $a == $d && $b == $c) || ( $a == $c && $b == $d)), 
+			estado == LpCelda.SIN_EVALUAR, $ndv : nombreDimensionVariable, $ndcv : nombreDimensionValor)	
+		$celdasHorizontales : List(size>0)
+              from collect( LpCelda(estado == LpCelda.SIN_EVALUAR,$c == valorVariable,valorComparar != $d,
+              nombreDimensionValor == $ndcv))
+              		
+		$celdasVerticales : List(size>0)
+              from collect( LpCelda(estado == LpCelda.SIN_EVALUAR,$c != valorVariable,valorComparar == $d, 
+              nombreDimensionVariable == $ndv))
+	then
+		System.out.println("Pista de Igualdad :");
+		c.setEstado(LpCelda.VERDADERO);
+        update (c);
+		System.out.println(c.enFormato());			
+		System.out.println("\tFalsas Horizontales");			
+		for (Object object : $celdasHorizontales){
+			LpCelda celda = (LpCelda)object;
+			celda.setEstado(LpCelda.FALSO);
+			update(celda);
+			System.out.println("\t"+celda.enFormato());	
+		}
+		System.out.println("\tFalsas Verticales");	
+		for (Object object : $celdasVerticales){
+			LpCelda celda = (LpCelda)object;
+			celda.setEstado(LpCelda.FALSO);
+			update(celda); 
+			System.out.println("\t"+celda.enFormato());	
+		}	
+end        
+
+
+rule "Hay pista de desigualdad. 2 variables A <> B"
+	when
+		p : LpPista($a : valor1,$b : valor2,valorOp1=="<>")
+		c : LpCelda($c : valorVariable,	$d : valorComparar,(( $a == $d && $b == $c) || ( $a == $c && $b == $d)), estado == LpCelda.SIN_EVALUAR)		
+	then
+		System.out.println("Pista de desIgualdad "+p.enFormato());	
+		c.setEstado(LpCelda.FALSO);
+        update (c);
+		System.out.println(c.enFormato());	
+		
+end
+
+rule "Hay pista de Diferentes (<>). 3 variables A <> B <> C => A <> C"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1=="<>", valorOp2=="<>", $c : valor3)
+		c2 : LpCelda($vv : valorVariable, $vc : valorComparar, estado ==LpCelda.SIN_EVALUAR,
+		(( $a == $vc && $c == $vv) || ( $a == $vv && $c == $vc) || 
+		 ( $b == $vc && $c == $vv) || ( $b == $vv && $c == $vc)))		
+	then
+		System.out.println("Pista de desIgualdad "+$vc+" <> "+$vv+" "+p.enFormato());	
+		c2.setEstado(LpCelda.FALSO);
+        update (c2);
+		System.out.println(c2.enFormato());	
+end
+
+rule "Hay pista de Diferentes (<>). 4 variables A <> B <> C <> D => A <> D"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1=="<>", valorOp2=="<>", $c : valor3, valorOp3=="<>", $d : valor4)
+		c1 : LpCelda($vv : valorVariable,	$vc : valorComparar, estado ==LpCelda.SIN_EVALUAR,
+		(( $a == $vc && $d == $vv) || ( $a == $vv && $d == $vc) ||
+		 ( $b == $vc && $d == $vv) || ( $b == $vv && $d == $vc) ||
+		 ( $c == $vc && $d == $vv) || ( $c == $vv && $d == $vc)))		
+	then
+		System.out.println("Pista de desIgualdad "+$vc+" <> "+$vv+" "+p.enFormato());	
+		c1.setEstado(LpCelda.FALSO);
+        update (c1);
+		System.out.println(c1.enFormato());	
+end
+
+rule "Hay pista de Diferentes (<>). 5 variables A <> B <> C <> D <> E => X <> E"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1=="<>", valorOp2=="<>", $c : valor3, valorOp3=="<>", $d : valor4, valorOp4=="<>", $e : valor5)
+		c1 : LpCelda($vv : valorVariable,	$vc : valorComparar, estado ==LpCelda.SIN_EVALUAR,
+		(( $a == $vc && $e == $vv) || ( $a == $vv && $e == $vc) ||
+		 ( $b == $vc && $e == $vv) || ( $b == $vv && $e == $vc) ||
+		 ( $c == $vc && $e == $vv) || ( $c == $vv && $e == $vc) ||
+		 ( $d == $vc && $e == $vv) || ( $d == $vv && $e == $vc)))		
+	then
+		System.out.println("Pista de desIgualdad "+$vc+" <> "+$vv+" " +p.enFormato());	
+		c1.setEstado(LpCelda.FALSO);
+        update (c1);
+		System.out.println(c1.enFormato());	
+end
+
+rule "Ganar: se revisa que existan #Valores*(#dimensiones - 1)"
+	salience 20
+	when		
+		d : LpDimension( $nombre : nombre)
+		t : LpTablero($dimen : dimension , $valores : valores)
+		$celdas : List()
+              from collect( LpCelda(estado == LpCelda.VERDADERO, $nombre == nombreDimensionValor))		
+        eval ($valores*($dimen-1) ==  $celdas.size())      
+	then
+		System.out.println("Terminé");	
+		for (Object object : $celdas){
+			LpCelda celda = (LpCelda)object;
+			System.out.print("\t"+celda.enFormato()+"\n");	
+		}
+end
+
+rule "Regla de descarte. Hay nValores -1 que son falsos.  Se coloca como verdadero el valor que esta sin evaluar"
+	salience 19
+	when
+		d : LpDimension( $nombre : nombre, $numeroDeElementos : numeroDeElementos)		
+		c : LpCelda($c : valorVariable,	$d : valorComparar,
+			$ndv : nombreDimensionVariable,			 
+			estado == LpCelda.SIN_EVALUAR)
+		$celdasHorizontales : List(size == $numeroDeElementos-1)
+              from collect( LpCelda(estado == LpCelda.FALSO,($c != valorVariable),
+              (valorComparar == $d), 
+              $ndv == nombreDimensionVariable))
+	then
+		System.out.println("Regla de Descarte"+$numeroDeElementos);							
+		c.setEstado(LpCelda.VERDADERO);
+        update (c);
+		System.out.println(c.enFormato());	
+end
+
+rule "Regla de descarte Vertical. Hay nValores -1 que son falsos.  Se coloca como verdadero el valor que esta sin evaluar"
+	salience 19
+	when
+		d : LpDimension( $nombre : nombre, $numeroDeElementos : numeroDeElementos)		
+		c : LpCelda($c : valorVariable,	$d : valorComparar,
+			$ndv : nombreDimensionValor,			 
+			estado == LpCelda.SIN_EVALUAR)
+		List(size == $numeroDeElementos-1)
+              from collect( LpCelda(estado == LpCelda.FALSO,($c == valorVariable),
+              (valorComparar != $d), 
+              $ndv == nombreDimensionValor))
+	then
+		System.out.println("Regla de Descarte vertical");							
+		c.setEstado(LpCelda.VERDADERO);
+        update (c);
+		System.out.println(c.enFormato());	
+end
+rule "Regla de Transitividad. Si 1 = A1 Y A1 = B1 => 1 = B1."
+	salience 19
+	when		
+		c1 : LpCelda($1 : valorComparar,	$A1 : valorVariable,					 
+			$estado :estado, $estado == LpCelda.VERDADERO)	
+		c2 : LpCelda($A1 == valorComparar, 	$B1 : valorVariable,					 
+			$estado == estado)
+	    c3 : LpCelda($1 == valorComparar,$B1 == valorVariable,
+			estado == LpCelda.SIN_EVALUAR)		
+				
+	then
+	
+		System.out.println("Regla de Transitividad: ");							
+		c3.setEstado($estado);
+		System.out.print("como "+c1.enFormato());							
+		System.out.println(" y "+c2.enFormato());							
+		System.out.println("entonces "+ c3.enFormato());	
+		update (c3);
+end
+
+rule "Regla de Transitividad 2. Si 1 = A1 Y 1 = B1 => A1 = B1"
+	salience 19
+	when		
+		c1 : LpCelda($1 : valorComparar,	$A1 : valorVariable,					 
+			$estado :estado, $estado == LpCelda.VERDADERO)	
+		c2 : LpCelda($1 == valorComparar, 	$B1 : valorVariable,					 
+			$estado == estado)
+	    c3 : LpCelda($A1 == valorComparar,$B1 == valorVariable,
+			estado == LpCelda.SIN_EVALUAR)		
+				
+	then
+	
+		System.out.println("Regla de Transitividad2: ");							
+		c3.setEstado($estado);
+		System.out.print("como "+c1.enFormato());							
+		System.out.println(" y "+c2.enFormato());							
+		System.out.println("entonces "+ c3.enFormato());								
+        update (c3);
+end
+
+
+//3 = b2 Y a1 = b2 =>3 = B2
+rule "Regla de Transitividad POSITIVA. Si 3=B2 y A1 = B2 => 3 = A1"
+	salience 19
+	when		
+		c1 : LpCelda($3 : valorComparar,	$B2 : valorVariable,					 
+			estado == LpCelda.VERDADERO)	
+		c2 : LpCelda($A1 : valorComparar,	$B2 == valorVariable,	$3!=$A1,				 
+			estado == LpCelda.VERDADERO)	
+	    c3 : LpCelda($3 == valorComparar || $3 == valorVariable, $A1 == valorComparar ||$A1 == valorVariable,
+			estado == LpCelda.SIN_EVALUAR)		
+				
+	then
+	
+		System.out.println("Regla de Transitividad Positiva 3: ");							
+		c3.setEstado(LpCelda.VERDADERO);
+		System.out.print("como "+c1.enFormato());							
+		System.out.println(" y "+c2.enFormato());							
+		System.out.println("entonces "+ c3.enFormato());							
+       	update (c3);
+end
+
+rule "Regla de Transitividad NEGATIVA. Si A1=B2 y A1 != 4 => B2 != 4"
+	salience 19
+	when		
+		c1 : LpCelda($A1 : valorComparar,	$B2 : valorVariable,					 
+			estado == LpCelda.VERDADERO)	
+		c2 : LpCelda($vc : valorComparar,$vv : valorVariable,$A1 == $vv || $A1 == $vc, 						 
+			estado == LpCelda.FALSO)
+	    c3 : LpCelda($B2 == valorVariable,valorComparar == $vv || valorComparar == $vc,
+			estado == LpCelda.SIN_EVALUAR)		
+				
+	then
+	
+		System.out.println("Regla de Transitividad Negativa: ");							
+		c3.setEstado(LpCelda.FALSO);
+		System.out.print("como "+c1.enFormato());							
+		System.out.println(" y "+c2.enFormato()+" entonces");							
+		System.out.println(c3.enFormato());							
+ 		update (c3);
+end
+
+rule "Regla de Transitividad NEGATIVA. Si B2=2 y B2 != A0 => 2 != A0"
+	salience 19
+	when		
+		c1 : LpCelda($2 : valorComparar,	$B2 : valorVariable,					 
+			estado == LpCelda.VERDADERO)	
+		c2 : LpCelda($valorComparar: valorComparar,$valorVariable : valorVariable, $valorComparar== $B2 || $valorVariable == $B2,						 
+			estado == LpCelda.FALSO)
+	    c3 : LpCelda($2 == valorComparar,$valorVariable == valorVariable,
+			estado == LpCelda.SIN_EVALUAR)		
+				
+	then
+	
+		System.out.println("Regla de Transitividad Negativa 2: ");							
+		c3.setEstado(LpCelda.FALSO);
+		System.out.print("como "+c1.enFormato());							
+		System.out.println(" y "+c2.enFormato());							
+		System.out.println("entonces "+ c3.enFormato());							
+       update (c3);
+end
+
+rule "Poner en falso si existe una verdadera en Horizontales."
+	salience 19
+	when
+		c : LpCelda($a : valorVariable, $b : valorComparar, estado == LpCelda.VERDADERO,
+			$ndv : nombreDimensionVariable, $ndcv : nombreDimensionValor)		
+		$celdasHorizontales : List(size>0)
+              from collect( LpCelda(estado == LpCelda.SIN_EVALUAR,
+              				$a != valorVariable,valorComparar == $b && nombreDimensionVariable == $ndv))
+	then
+		System.out.println("Poner en falso si existe una verdadera en horizontales" );
+		for (Object object : $celdasHorizontales){
+			LpCelda celda = (LpCelda)object;
+			celda.setEstado(LpCelda.FALSO);
+			update(celda);
+			System.out.println("\t"+celda.enFormato());	
+		}
+end
+
+rule "Poner en falso si existe una verdadera en Verticales."
+	salience 19
+	when
+		c : LpCelda($a : valorVariable, $b : valorComparar, estado == LpCelda.VERDADERO,
+			$ndv : nombreDimensionVariable, $ndcv : nombreDimensionValor)
+		
+		$celdasVerticales : List(size>0)
+              from collect( LpCelda(estado == LpCelda.SIN_EVALUAR,
+              				$a == valorVariable,valorComparar != $b && nombreDimensionValor == $ndcv))
+	then
+		System.out.println("Poner en falso si existe una verdadera en Verticales" );
+		for (Object object : $celdasVerticales){
+			LpCelda celda = (LpCelda)object;
+			celda.setEstado(LpCelda.FALSO);
+			update(celda);
+			System.out.println("\t"+celda.enFormato());	
+		}
+end
+
+
+
+rule "Hay pista de XOR.  A1 = B1 XOR A1 = C3.  Si son diferentes dimensiones, le pone falso."
+	when
+		p : LpPista($A1 : valor2, $B2 : valor4, valorOp2=="XOR")
+		cNegar : LpCelda($A1 == valorVariable || $A1 == valorComparar, $B2 == valorVariable || $B2 == valorComparar,
+		 estado == LpCelda.SIN_EVALUAR)										 		
+	then		
+		System.out.println("Pista de XOR: "+p.enFormato()+" entonces "+$A1+"!="+$B2);
+		cNegar.setEstado(LpCelda.FALSO);
+		System.out.println(cNegar.enFormato());		
+        update (cNegar);
+		
+end
+
+rule "Hay pista de XOR.  A1 = B1 XOR A1 = C3. Parte derecha sin evaluar"
+	when
+		p : LpPista($1 : valor1, $A1 : valor2, $1 == valor3, $B3 : valor4, valorOp2=="XOR")
+		cIzq   : LpCelda($1 == valorComparar || $1 == valorVariable,$A1 == valorComparar || $A1 == valorVariable,$estado : estado, estado != LpCelda.SIN_EVALUAR)
+		cDer   : LpCelda($1 == valorComparar || $1 == valorVariable,$B3 == valorComparar || $B3 == valorVariable, estado == LpCelda.SIN_EVALUAR)
+	then		
+			cDer.setEstado(LpCelda.VERDADERO==$estado?LpCelda.FALSO:LpCelda.VERDADERO);				
+        	update (cDer);
+        	System.out.println("Pista de XOR:"+ p.enFormato()+" Y "+cIzq.enFormato());
+			System.out.println(cDer.enFormato());
+		
+		
+end
+
+//b3=a3 O B3 = A2
+rule "Hay pista de XOR.  A2 = B3 XOR A3 = B3. Parte derecha sin evaluar"
+	when
+		p : LpPista($A2 : valor1, $B3 : valor2, $A3 : valor3, $B3 == valor4, valorOp2=="XOR")
+		cIzq   : LpCelda($A2 == valorComparar || $A2 == valorVariable,$B3 == valorComparar || $B3 == valorVariable, estado != LpCelda.SIN_EVALUAR)
+		cDer   : LpCelda($A3 == valorComparar || $A3 == valorVariable,$B3 == valorComparar || $B3 == valorVariable,$estadoIzq : estado, estado == LpCelda.SIN_EVALUAR)
+	then		
+			cDer.setEstado(LpCelda.VERDADERO==$estadoIzq?LpCelda.FALSO:LpCelda.VERDADERO);				
+        	update (cDer);
+        	System.out.println("Pista de XOR:2");
+			System.out.println(cDer.enFormato());
+		
+		
+end
+
+rule "Hay pista de XOR.  1 = A1 XOR 1 = B3.  Parte Izquierda sin evaluar"
+	when
+		p : LpPista($1 : valor1, $A1 : valor2, $1 == valor3, $B3 : valor4, valorOp2=="XOR")
+		cIzq   : LpCelda($1 == valorComparar || $1 == valorVariable,$A1 == valorComparar || $A1 == valorVariable, estado == LpCelda.SIN_EVALUAR)
+		cDer   : LpCelda($1 == valorComparar || $1 == valorVariable,$B3 == valorComparar || $B3 == valorVariable,$estadoDer : estado, estado != LpCelda.SIN_EVALUAR)				
+	then		
+		if (LpCelda.VERDADERO==$estadoDer)
+		{
+			cIzq.setEstado(LpCelda.FALSO);				
+        	update (cIzq);
+        	System.out.println("Pista de XOR:3");
+			System.out.println(cIzq.enFormato());
+		}
+		else
+		{
+			cIzq.setEstado(LpCelda.VERDADERO);				
+        	update (cIzq);
+        	System.out.println("Pista de XOR:3P");
+			System.out.println(cIzq.enFormato());
+		}
+		
+end
+
+
+rule "Hay pista de Mayor (>). Entonces el cruze de A y B es Falso "	
+	when		
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">")
+		c : LpCelda($c : valorVariable,	$d : valorComparar,
+					(( $a == $d && $b == $c) || ( $a == $c && $b == $d)),					
+					estado == LpCelda.SIN_EVALUAR)		
+	then
+		System.out.println("Pista de Mayor donde ["+$a+">"+$b+"] => El cruze de "+$a+" y "+$b+" es falso");
+		c.setEstado(LpCelda.FALSO);
+		update (c);
+		System.out.println(c.enFormato());	        
+end
+
+rule "Hay pista de Mayor (>). Por lo tanto parte izquierda  no salio Primero"	
+	when
+		d : LpDimension( $nombre : nombre, $primerElemento : primerElemento)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">")
+		c : LpCelda($a == valorVariable,  $nombre == nombreDimensionValor, $primerElemento == valorComparar,					
+					estado == LpCelda.SIN_EVALUAR)		
+	then
+		System.out.println("Pista de Mayor donde ["+$a+">"+$b+"] Primero Elemento del mayor Falso" );
+		c.setEstado(LpCelda.FALSO);
+		update(c);
+		System.out.println(c.enFormato());
+end
+
+rule "Hay pista de Mayor (>). Por lo tanto B no salio ultimo"	
+	when
+		d : LpDimension( $nombre : nombre, $ultimoElemento : ultimoElemento)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">")
+		c : LpCelda($b == valorVariable,  $nombre == nombreDimensionValor, $ultimoElemento == valorComparar,					
+					estado == LpCelda.SIN_EVALUAR)		
+	then
+		System.out.println("Pista de Mayor donde ["+$a+">"+$b+"] Ultimo Elemento del menor Falso");
+		c.setEstado(LpCelda.FALSO);
+		update(c);
+		System.out.println(c.enFormato());
+end
+
+rule "Hay pista de Mayor (>). y el menor tiene un verdadero"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">")
+		celdaVerdaderaMenor : LpCelda($b == valorVariable,$valorComparar : valorComparar ,
+		 $nombre == nombreDimensionValor, estado == LpCelda.VERDADERO)
+		$celdasMayores : List(size>0)
+              from collect( LpCelda($a == valorVariable,  $nombre == nombreDimensionValor, valorComparar <= $valorComparar 
+              , estado != LpCelda.FALSO))
+	then
+		System.out.println("Hay pista de Mayor (>). y el menor tiene un verdadero");			
+		for (Object object : $celdasMayores){
+			LpCelda celda = (LpCelda)object; 
+				celda.setEstado(LpCelda.FALSO);
+				update(celda);
+				System.out.println(celda.enFormato());	
+		}
+end
+
+rule "Hay pista de Mayor (>). y el mayor tiene un verdadero"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">")
+		celdaVerdaderaMayor : LpCelda($a == valorVariable,$valorComparar : valorComparar ,
+		 $nombre == nombreDimensionValor, estado == LpCelda.VERDADERO)
+		$celdasMenores : List(size>0)
+              from collect( LpCelda($b == valorVariable,  $nombre == nombreDimensionValor, valorComparar >= $valorComparar 
+              , estado != LpCelda.FALSO))
+	then
+		System.out.println("Hay pista de Mayor (>). y el Mayor tiene un verdadero");			
+		for (Object object : $celdasMenores){
+			LpCelda celda = (LpCelda)object; 
+				celda.setEstado(LpCelda.FALSO);
+				update(celda);
+				System.out.println(celda.enFormato());	
+		}
+end
+
+rule "Hay pista de Mayor (>). SI A>B y Lastval(A)== false -> Lasval(B)-1 == true"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores,$ultimoElemento : ultimoElemento)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">")
+		c : LpCelda($a == valorComparar || $a == valorVariable,$ultimoElemento == valorVariable || $ultimoElemento == valorComparar ,
+		 estado == LpCelda.FALSO)
+		$celdasMenores : List(size>0)
+              from collect( LpCelda($b == valorComparar || $b == valorVariable,  $nombre == nombreDimensionValor,
+              valorComparar < $ultimoElemento,estado == LpCelda.SIN_EVALUAR ))
+		 $celda : LpCelda() from accumulate(
+    			$child: LpCelda( $cd: valorComparar) from $celdasMenores,        
+    			init( LpCelda minp = null; String mind = "0"; ),
+    			action( if( $cd.compareTo( mind ) > 0 ){
+                	minp = $child;
+                	mind = $cd;
+            		} 
+            		),
+    			result( minp ) )
+	then
+		System.out.println("Hay pista de Mayor (>). "+p.enFormato()+" y "+c.enFormato());			
+		$celda.setEstado(LpCelda.FALSO);
+		update($celda);
+		System.out.println($celda.enFormato());	
+end
+
+
+rule "Hay pista de Mayor (>). SI A>NB y B=C A=C+N"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">",$veces1 : veces1Entero, $veces1 != 0)
+		c : LpCelda($b == valorVariable,$c : valorEntero,$nombre == nombreDimensionValor,estado == LpCelda.VERDADERO)
+		$celda : LpCelda($a == valorVariable,  $nombre == nombreDimensionValor,
+              estado == LpCelda.SIN_EVALUAR, valorEntero == $c+$veces1 )
+	then
+		System.out.println("Hay pista de Mayor (>). "+p.enFormato()+" y "+c.enFormato()+" entonces N+1 verdadero");			
+		$celda.setEstado(LpCelda.VERDADERO);
+		update($celda);
+		System.out.println($celda.enFormato());	
+end
+
+
+rule "Hay pista de Mayor (>). SI A>NB y A!=C B!=C-N"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">",$veces1 : veces1Entero, $veces1 != 0)
+		c : LpCelda($a == valorVariable,$c : valorEntero,$nombre == nombreDimensionValor,estado == LpCelda.FALSO)
+		$celda : LpCelda($b == valorVariable,  $nombre == nombreDimensionValor,
+              estado == LpCelda.SIN_EVALUAR, valorEntero == $c-$veces1 )
+	then
+		System.out.println("Hay pista de Mayor (>). "+p.enFormato()+" y "+c.enFormato()+" entonces N-1 Falso");			
+		$celda.setEstado(LpCelda.FALSO);
+		update($celda);
+		System.out.println($celda.enFormato());	
+end
+
+
+rule "Hay pista de Mayor (>). SI A>NB => B!=C+N fuera del rango"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1,$b : valor2,valorOp1==">",$veces1 : veces1Entero, $veces1 != 0)
+		$celdasMenores : List(size>0)
+             from collect( LpCelda($b == valorComparar || $b == valorVariable,  $nombre == nombreDimensionValor,
+              valorEntero >= $numeroDeElementos-$veces1,estado == LpCelda.SIN_EVALUAR ))
+	then
+		System.out.println("Hay pista de Mayor (>). "+p.enFormato()+" entonces todas las celdas mayores a "+
+		($numeroDeElementos-$veces1)+" son Falsas");			
+		for (Object object : $celdasMenores){
+			LpCelda celda = (LpCelda)object;
+			celda.setEstado(LpCelda.FALSO);
+			update(celda);
+			System.out.println("\t"+celda.enFormato());	
+		}
+end
+
+rule "Hay pista de AND y XOR. A = B AND C= D XOR A = D AND C = B entonces A<>C"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1, valorOp1=="=",$b : valor2,valorOp2=="AND",
+					$c : valor3, valorOp3=="=",$d : valor4,valorOp4=="XOR",
+					$a== valor5, valorOp5=="=",$d== valor6,valorOp6=="AND",
+					$c== valor7, valorOp7=="=",$b== valor8)
+		celda :	LpCelda($vc : valorComparar, $vv : valorVariable,
+		($a == $vc && $c == $vv)|| 
+		($c == $vc && $a == $vv),estado == LpCelda.SIN_EVALUAR )		
+	then
+		System.out.println("Hay pista "+p.enFormato()+" entonces "+$a+"<>"+$c);
+		celda.setEstado(LpCelda.FALSO);
+		update(celda);
+		System.out.println("\t"+celda.enFormato());	
+	
+end
+
+
+rule "Hay pista de AND y XOR. A = B AND C= D XOR A = D AND C = B entonces B<>D"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1, valorOp1=="=",$b : valor2,valorOp2=="AND",
+					$c : valor3, valorOp3=="=",$d : valor4,valorOp4=="XOR",
+					$a== valor5, valorOp5=="=",$d== valor6,valorOp6=="AND",
+					$c== valor7, valorOp7=="=",$b== valor8)
+		celda :	LpCelda($vc : valorComparar, $vv : valorVariable,
+		($b == $vc && $d == $vv)|| 
+		($d == $vc && $b == $vv),estado == LpCelda.SIN_EVALUAR )		
+	then
+		System.out.println("Hay pista "+p.enFormato()+" entonces "+$b+"<>"+$d);
+		celda.setEstado(LpCelda.FALSO);
+		update(celda);
+		System.out.println("\t"+celda.enFormato());	
+	
+end
+
+rule "Hay pista de AND y XOR. A = B AND C= D XOR A = D AND C = B  y A=B  y la relacion de la derecha tiene estados diferentes "	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1, valorOp1=="=",$b : valor2,valorOp2=="AND",
+					$c : valor3, valorOp3=="=",$d : valor4,valorOp4=="XOR",
+					$a== valor5, valorOp5=="=",$d== valor6,valorOp6=="AND",
+					$c== valor7, valorOp7=="=",$b== valor8)
+		celda :	LpCelda($vc : valorComparar, $vv : valorVariable,
+		($a == $vc && $b == $vv)|| 
+		($b == $vc && $a == $vv),$estado : estado )		
+		celda1 :	LpCelda($vc1 : valorComparar, $vv1 : valorVariable,
+		($c == $vc1 && $d == $vv1)|| 
+		($d == $vc1 && $c == $vv1),$estado1 : estado,$estado1 != $estado )		
+	then
+		System.out.println("Hay pista "+p.enFormato()+" y la relacion de la derecha tiene estados diferentes ");
+		if($estado== LpCelda.SIN_EVALUAR){
+			celda.setEstado($estado1);
+			update(celda);
+		}
+		System.out.println(celda.enFormato());	
+		if($estado1== LpCelda.SIN_EVALUAR){
+			celda1.setEstado($estado);
+			update(celda1);
+		}
+		System.out.println("\t"+celda1.enFormato());	
+	
+end
+
+rule "Hay pista de AND y XOR. A = B AND C= D XOR A = D AND C = B  y A=D  y la relacion de la izquierda tiene estados diferentes "	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1, valorOp1=="=",$b : valor2,valorOp2=="AND",
+					$c : valor3, valorOp3=="=",$d : valor4,valorOp4=="XOR",
+					$a== valor5, valorOp5=="=",$d== valor6,valorOp6=="AND",
+					$c== valor7, valorOp7=="=",$b== valor8)
+		celda :	LpCelda($vc : valorComparar, $vv : valorVariable,
+		($c == $vc && $b == $vv)|| 
+		($b == $vc && $c == $vv),$estado : estado )		
+		celda1 :	LpCelda($vc1 : valorComparar, $vv1 : valorVariable,
+		($a == $vc1 && $d == $vv1)|| 
+		($d == $vc1 && $a == $vv1),$estado1 : estado,$estado1 != $estado )		
+	then
+		System.out.println("Hay pista "+p.enFormato()+" y la relacion de la izquierda tiene estados diferentes ");
+		if($estado== LpCelda.SIN_EVALUAR){
+			celda.setEstado($estado1);
+			update(celda);
+		}
+		System.out.println(celda.enFormato());	
+		if($estado1== LpCelda.SIN_EVALUAR){
+			celda1.setEstado($estado);
+			update(celda1);
+		}
+		System.out.println("\t"+celda1.enFormato());	
+	
+end
+
+rule "Hay pista de AND y XOR. A = B AND C= D XOR A = D AND C = B  y A=B y ya se conoce el valor de un lado del XOR"	
+	when
+		d : LpDimension( $nombre : nombre, $valores : valores, $numeroDeElementos : numeroDeElementos)			
+		p : LpPista($a : valor1, valorOp1=="=",$b : valor2,valorOp2=="AND",
+					$c : valor3, valorOp3=="=",$d : valor4,valorOp4=="XOR",
+					$a== valor5, valorOp5=="=",$d== valor6,valorOp6=="AND",
+					$c== valor7, valorOp7=="=",$b== valor8)
+		celda :	LpCelda($vc : valorComparar, $vv : valorVariable,
+		($a == $vc && $b == $vv)|| 
+		($b == $vc && $a == $vv),$estado : estado )		
+		celda1 :	LpCelda($vc1 : valorComparar, $vv1 : valorVariable,
+		($a == $vc1 && $d == $vv1)|| 
+		($d == $vc1 && $a == $vv1),$estado1 : estado,$estado1 != $estado )		
+	then
+		System.out.println("Hay pista "+p.enFormato()+" y ya se conoce el valor de un lado del XOR");
+		if($estado== LpCelda.SIN_EVALUAR){
+			celda.setEstado($estado1 == LpCelda.FALSO?LpCelda.VERDADERO:LpCelda.FALSO);
+			update(celda);
+		}
+		System.out.println(celda.enFormato());	
+		if($estado1== LpCelda.SIN_EVALUAR){
+			celda1.setEstado($estado == LpCelda.FALSO?LpCelda.VERDADERO:LpCelda.FALSO);
+			update(celda1);
+		}
+		System.out.println("\t"+celda1.enFormato());	
+end
